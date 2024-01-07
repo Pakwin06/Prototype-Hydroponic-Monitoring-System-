@@ -1,0 +1,122 @@
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
+#define SCREEN_WIDTH 128  // OLED display width, in pixels
+#define SCREEN_HEIGHT 64  // OLED display height, in pixels
+#define OLED_RESET    -1  // Reset pin # (or -1 if sharing reset pin)
+Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
+
+#include <DHT.h>
+#include <DHT_U.h>
+#define DHTPIN D3
+#define DHTTYPE DHT11
+DHT dht(DHTPIN, DHTTYPE);
+uint8_t suhu_udara, kelembaban_udara; //temperature dan humidity dengan tipe unsigned 8-bit.
+
+//int relaypin = D5;
+
+#include <OneWire.h>
+#include <DallasTemperature.h>
+// GPIO where the DS18B20 is connected to
+const int oneWireBus = D6;
+// Setup a oneWire instance to communicate with any OneWire devices
+OneWire oneWire(oneWireBus);
+// Pass our oneWire reference to Dallas Temperature sensor
+DallasTemperature sensors(&oneWire);
+
+#include <Wire.h>
+float calibration_value = 21.34;
+int phval = 0;
+unsigned long int avgval;
+int buffer_arr[10], temp;
+float ph_act;
+
+void setup()
+{
+  Serial.begin(9600);
+  // Start the DS18B20 sensor
+  sensors.begin();
+
+  if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C))
+  {
+    Serial.println("SSD1306 allocation failed");
+    while (1); //Don't proceed, loop forever
+  }
+
+  dht.begin();
+
+  display.clearDisplay();
+  display.setTextColor(WHITE);
+  display.setTextSize(1);
+  display.setCursor(25, 0);
+  display.print("Selamat Datang");
+  display.setCursor(65, 10);
+  display.print("di");
+  display.setCursor(35, 20);
+  display.print("Projek BSC");
+  display.display();
+  delay(3000);
+
+}
+
+void loop()
+{
+  suhu_udara = dht.readTemperature(); //membaca suhu pada sensor DHT11
+  kelembaban_udara = dht.readHumidity(); //membaca kelembaban sensor DHT11
+
+  sensors.requestTemperatures();
+  int suhu_air = sensors.getTempCByIndex(0);
+
+  for (int i = 0; i < 10; i++)
+  {
+    buffer_arr[i] = analogRead(A0);
+    delay(30);
+  }
+  for (int i = 0; i < 9; i++)
+  {
+    for (int j = i + 1; j < 10; j++)
+    {
+      if (buffer_arr[i] > buffer_arr[j])
+      {
+        temp = buffer_arr[i];
+        buffer_arr[i] = buffer_arr[j];
+        buffer_arr[j] = temp;
+      }
+    }
+  }
+  avgval = 0;
+  for (int i = 2; i < 8; i++)
+    avgval += buffer_arr[i];
+  float volt = (float)avgval * 5.0 / 1024 / 6;
+  float ph_act = -5.70 * volt + calibration_value;
+
+  display.clearDisplay();
+  display.setTextSize(1);
+  display.setCursor(0, 0);
+  display.println("Temp|Hum:");
+  display.setCursor(0, 10);
+  display.println("Water Temp:");
+  display.setCursor(0, 20);
+  display.println("Water pH:");
+  display.display();
+  display.setCursor(65, 0);
+  display.print(suhu_udara);
+  display.setCursor(80, 0);
+  display.print("*C");
+  display.setCursor(95, 0);
+  display.print("|");
+  display.setCursor(105, 0);
+  display.print(kelembaban_udara);
+  display.setCursor(120, 0);
+  display.print('%');
+  display.setCursor(75, 10);
+  display.print(suhu_air);
+  display.setCursor(90, 10);
+  display.print("*C");
+  display.setCursor(75, 20);
+  display.print(ph_act);
+  display.setCursor(105, 20);
+  display.print("%");
+  display.display();
+  delay(100);
+
+}
